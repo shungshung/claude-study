@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OKR 목표 어시스턴트</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #f5f6fa;
+      color: #1a1a2e;
+      line-height: 1.7;
+      word-break: keep-all;
+      min-height: 100vh;
+    }
+
+    header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 2.5rem 1.5rem;
+      text-align: center;
+    }
+
+    header h1 { font-size: 1.9rem; font-weight: 700; margin-bottom: 0.4rem; }
+    header p { font-size: 1rem; opacity: 0.88; }
+
+    .container {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem;
+    }
+
+    /* ── 입력 폼 ── */
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 2rem;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+      margin-bottom: 1.5rem;
+    }
+
+    .field { margin-bottom: 1.25rem; }
+    .field label {
+      display: block;
+      font-weight: 500;
+      font-size: 0.92rem;
+      margin-bottom: 0.4rem;
+      color: #444;
+    }
+    .field label .required { color: #e63946; margin-left: 2px; }
+    .field textarea, .field input[type="text"] {
+      width: 100%;
+      border: 1.5px solid #ddd;
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      font-family: inherit;
+      font-size: 0.95rem;
+      line-height: 1.6;
+      transition: border-color 0.2s;
+      resize: vertical;
+    }
+    .field textarea:focus, .field input[type="text"]:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+
+    .btn-primary {
+      display: block;
+      width: 100%;
+      padding: 0.9rem;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    .btn-primary:hover { opacity: 0.9; }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* ── 로딩 ── */
+    #loading {
+      text-align: center;
+      padding: 2rem;
+    }
+    .spinner {
+      width: 44px; height: 44px;
+      border: 4px solid #e0e0e0;
+      border-top-color: #667eea;
+      border-radius: 50%;
+      animation: spin 0.9s linear infinite;
+      margin: 0 auto 1rem;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #loading p { color: #555; font-size: 0.95rem; }
+
+    #stream-preview {
+      margin-top: 1rem;
+      background: #f8f8ff;
+      border: 1px solid #e0e0f0;
+      border-radius: 8px;
+      padding: 1rem;
+      font-family: 'Courier New', monospace;
+      font-size: 0.78rem;
+      color: #555;
+      text-align: left;
+      max-height: 200px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    /* ── 결과 ── */
+    #result-header {
+      margin-bottom: 1.5rem;
+    }
+    .period-badge {
+      display: inline-block;
+      background: #667eea;
+      color: white;
+      font-size: 0.82rem;
+      font-weight: 700;
+      padding: 0.25rem 0.75rem;
+      border-radius: 20px;
+      margin-bottom: 0.75rem;
+    }
+    .result-summary {
+      font-size: 0.97rem;
+      color: #444;
+      background: #f0f0ff;
+      border-left: 3px solid #667eea;
+      padding: 0.75rem 1rem;
+      border-radius: 0 8px 8px 0;
+    }
+
+    /* ── Objective 카드 ── */
+    .objective-card {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+      margin-bottom: 1.25rem;
+      overflow: hidden;
+    }
+    .obj-header {
+      background: linear-gradient(135deg, #667eea15, #764ba215);
+      border-bottom: 1px solid #e8e8f8;
+      padding: 1.1rem 1.25rem;
+    }
+    .obj-id {
+      display: inline-block;
+      background: #667eea;
+      color: white;
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 0.15rem 0.55rem;
+      border-radius: 4px;
+      margin-bottom: 0.4rem;
+    }
+    .obj-title {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #1a1a2e;
+      margin-bottom: 0.35rem;
+    }
+    .obj-rationale {
+      font-size: 0.85rem;
+      color: #666;
+    }
+
+    /* ── KR 행 ── */
+    .kr-list { padding: 0.5rem 0; }
+    .kr-row {
+      padding: 0.9rem 1.25rem;
+      border-bottom: 1px solid #f0f0f8;
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 0.6rem 0.9rem;
+      align-items: start;
+    }
+    .kr-row:last-child { border-bottom: none; }
+    .kr-id-badge {
+      background: #f0f0f8;
+      color: #667eea;
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      white-space: nowrap;
+      margin-top: 0.1rem;
+    }
+    .kr-content {}
+    .kr-title {
+      font-size: 0.92rem;
+      font-weight: 500;
+      color: #222;
+      margin-bottom: 0.35rem;
+    }
+    .kr-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      align-items: center;
+      font-size: 0.8rem;
+    }
+    .metric-badge {
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 0.15rem 0.5rem;
+      border-radius: 4px;
+      text-transform: uppercase;
+    }
+    .metric-number   { background: #dbeafe; color: #1d4ed8; }
+    .metric-percentage { background: #dcfce7; color: #15803d; }
+    .metric-currency { background: #fef9c3; color: #a16207; }
+    .metric-boolean  { background: #f3f4f6; color: #4b5563; }
+
+    .kr-progress {
+      color: #444;
+      font-weight: 500;
+    }
+    .kr-unit { color: #888; }
+    .kr-measurement {
+      color: #888;
+      font-size: 0.78rem;
+      margin-top: 0.2rem;
+    }
+
+    /* ── 실행 팁 ── */
+    #tips-section {
+      margin-top: 1rem;
+    }
+    .tips-title {
+      font-size: 0.92rem;
+      font-weight: 700;
+      color: #555;
+      margin-bottom: 0.6rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .tips-list {
+      list-style: none;
+    }
+    .tips-list li {
+      display: flex;
+      gap: 0.5rem;
+      align-items: flex-start;
+      font-size: 0.9rem;
+      color: #444;
+      margin-bottom: 0.5rem;
+    }
+    .tips-list li::before {
+      content: "✓";
+      color: #667eea;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    /* ── 액션 버튼 ── */
+    .action-buttons {
+      display: flex;
+      gap: 0.75rem;
+      margin-top: 1.5rem;
+    }
+    .btn-secondary {
+      flex: 1;
+      padding: 0.75rem;
+      border: 2px solid #667eea;
+      background: white;
+      color: #667eea;
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 0.92rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s;
+    }
+    .btn-secondary:hover { background: #667eea; color: white; }
+
+    /* ── 오류 ── */
+    #error-box {
+      background: #fff0f0;
+      border: 1.5px solid #ffbdbd;
+      border-radius: 10px;
+      padding: 1.25rem;
+      text-align: center;
+    }
+    #error-message {
+      color: #c0392b;
+      margin-bottom: 1rem;
+      font-size: 0.95rem;
+    }
+
+    /* ── 토스트 ── */
+    #toast {
+      position: fixed;
+      bottom: 2rem;
+      left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: #1a1a2e;
+      color: white;
+      padding: 0.65rem 1.4rem;
+      border-radius: 24px;
+      font-size: 0.9rem;
+      font-weight: 500;
+      transition: transform 0.3s ease;
+      pointer-events: none;
+      z-index: 100;
+    }
+    #toast.show { transform: translateX(-50%) translateY(0); }
+
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>OKR 목표 어시스턴트</h1>
+  <p>사업 정보를 입력하면 AI가 맞춤형 OKR을 제안해드립니다</p>
+</header>
+
+<div class="container">
+
+  <!-- 입력 폼 -->
+  <section id="input-section">
+    <div class="card">
+      <form id="okr-form">
+        <div class="field">
+          <label for="business-desc">사업 설명 <span class="required">*</span></label>
+          <textarea id="business-desc" rows="4"
+            placeholder="예: 서울 마포구의 20-30대 직장인 대상 점심 도시락 배달 스타트업. 직원 5명, 창업 6개월차"
+            required></textarea>
+        </div>
+        <div class="field">
+          <label for="rough-goals">대략의 목표 <span class="required">*</span></label>
+          <textarea id="rough-goals" rows="3"
+            placeholder="예: 매출을 늘리고 싶고, 단골 고객도 확보하고 싶어요. 배달 앱 평점도 올리고 싶습니다"
+            required></textarea>
+        </div>
+        <div class="field">
+          <label for="time-period">기간 <span style="font-weight:400; color:#888">(선택)</span></label>
+          <input id="time-period" type="text" placeholder="예: 2025년 2분기, 올해 상반기">
+        </div>
+        <button type="submit" id="submit-btn" class="btn-primary">OKR 생성하기</button>
+      </form>
+    </div>
+  </section>
+
+  <!-- 로딩 -->
+  <div id="loading" class="hidden card">
+    <div class="spinner"></div>
+    <p>AI가 맞춤형 OKR을 분석하고 있습니다...</p>
+    <pre id="stream-preview"></pre>
+  </div>
+
+  <!-- 결과 -->
+  <section id="result-section" class="hidden">
+    <div class="card">
+      <div id="result-header"></div>
+      <div id="objectives-container"></div>
+      <div id="tips-section"></div>
+      <div class="action-buttons">
+        <button id="copy-btn" class="btn-secondary">클립보드에 복사</button>
+        <button id="reset-btn" class="btn-secondary">다시 생성하기</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 오류 -->
+  <div id="error-box" class="hidden">
+    <p id="error-message"></p>
+    <button id="error-retry-btn" class="btn-primary" style="max-width:200px; margin:0 auto;">다시 시도</button>
+  </div>
+
+</div>
+
+<div id="toast">복사되었습니다!</div>
+
+<script>
+  // ── 상태 관리 ──
+  let currentOKR = null;
+
+  function setState(state) {
+    document.getElementById('input-section').classList.toggle('hidden', state !== 'idle');
+    document.getElementById('loading').classList.toggle('hidden', state !== 'loading');
+    document.getElementById('result-section').classList.toggle('hidden', state !== 'result');
+    document.getElementById('error-box').classList.toggle('hidden', state !== 'error');
+  }
+
+  function showError(message) {
+    document.getElementById('error-message').textContent = message;
+    setState('error');
+  }
+
+  // ── 폼 제출 ──
+  document.getElementById('okr-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const businessDesc = document.getElementById('business-desc').value.trim();
+    const roughGoals   = document.getElementById('rough-goals').value.trim();
+    const timePeriod   = document.getElementById('time-period').value.trim();
+
+    if (!businessDesc || !roughGoals) {
+      alert('사업 설명과 목표를 모두 입력해주세요.');
+      return;
+    }
+
+    document.getElementById('stream-preview').textContent = '';
+    setState('loading');
+
+    try {
+      const response = await fetch('/api/generate-okr', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          business_description: businessDesc,
+          rough_goals: roughGoals,
+          time_period: timePeriod,
+        }),
+      });
+
+      if (!response.ok) {
+        const err = await response.json();
+        showError(err.error || '서버 오류가 발생했습니다.');
+        return;
+      }
+
+      // ReadableStream으로 SSE 수신 (POST이므로 EventSource 불가)
+      const reader  = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const parts = buffer.split('\n\n');
+        buffer = parts.pop(); // 불완전한 마지막 청크 보존
+
+        for (const part of parts) {
+          if (!part.startsWith('data: ')) continue;
+          try {
+            const event = JSON.parse(part.slice(6));
+            handleSSEEvent(event);
+          } catch (_) {}
+        }
+      }
+    } catch (err) {
+      showError('네트워크 오류가 발생했습니다. 인터넷 연결을 확인해주세요.');
+    }
+  });
+
+  // ── SSE 이벤트 처리 ──
+  function handleSSEEvent(event) {
+    if (event.type === 'chunk') {
+      document.getElementById('stream-preview').textContent += event.text;
+      const pre = document.getElementById('stream-preview');
+      pre.scrollTop = pre.scrollHeight;
+    } else if (event.type === 'done') {
+      currentOKR = event.okr;
+      if (event.okr && event.okr.error) {
+        showError('OKR 생성에 실패했습니다. 다시 시도해주세요.');
+      } else {
+        renderOKR(event.okr);
+        setState('result');
+      }
+    } else if (event.type === 'error') {
+      showError(event.message);
+    }
+  }
+
+  // ── OKR 렌더링 ──
+  const METRIC_LABELS = {
+    number: '수치',
+    percentage: '비율',
+    currency: '금액',
+    boolean: '달성여부',
+  };
+  const METRIC_CLASSES = {
+    number: 'metric-number',
+    percentage: 'metric-percentage',
+    currency: 'metric-currency',
+    boolean: 'metric-boolean',
+  };
+
+  function renderOKR(okr) {
+    // 헤더 (기간 + 요약)
+    const headerEl = document.getElementById('result-header');
+    headerEl.innerHTML = `
+      <div class="period-badge">${esc(okr.period || '기간 미설정')}</div>
+      <div class="result-summary">${esc(okr.summary || '')}</div>
+    `;
+
+    // Objectives
+    const objContainer = document.getElementById('objectives-container');
+    objContainer.innerHTML = '';
+
+    (okr.objectives || []).slice(0, 3).forEach((obj) => {
+      const card = document.createElement('div');
+      card.className = 'objective-card';
+
+      const krsHTML = (obj.key_results || []).map((kr) => {
+        const metricClass = METRIC_CLASSES[kr.metric_type] || 'metric-number';
+        const metricLabel = METRIC_LABELS[kr.metric_type] || kr.metric_type;
+
+        const baselineText = (kr.baseline && kr.baseline !== '알 수 없음')
+          ? `${esc(kr.baseline)}${esc(kr.unit || '')} → `
+          : '';
+        const targetText = `${esc(kr.target || '')}${esc(kr.unit || '')}`;
+
+        return `
+          <div class="kr-row">
+            <span class="kr-id-badge">${esc(kr.id)}</span>
+            <div class="kr-content">
+              <div class="kr-title">${esc(kr.title)}</div>
+              <div class="kr-meta">
+                <span class="metric-badge ${metricClass}">${metricLabel}</span>
+                <span class="kr-progress">${baselineText}<strong>${targetText}</strong></span>
+              </div>
+              ${kr.measurement_method ? `<div class="kr-measurement">📏 ${esc(kr.measurement_method)}</div>` : ''}
+            </div>
+          </div>`;
+      }).join('');
+
+      card.innerHTML = `
+        <div class="obj-header">
+          <span class="obj-id">${esc(obj.id)}</span>
+          <div class="obj-title">${esc(obj.title)}</div>
+          ${obj.rationale ? `<div class="obj-rationale">${esc(obj.rationale)}</div>` : ''}
+        </div>
+        <div class="kr-list">${krsHTML}</div>
+      `;
+      objContainer.appendChild(card);
+    });
+
+    // 실행 팁
+    const tipsEl = document.getElementById('tips-section');
+    if (okr.implementation_tips && okr.implementation_tips.length > 0) {
+      const tipsHTML = okr.implementation_tips.map(tip =>
+        `<li>${esc(tip)}</li>`
+      ).join('');
+      tipsEl.innerHTML = `
+        <div class="tips-title">실행 가이드</div>
+        <ul class="tips-list">${tipsHTML}</ul>
+      `;
+    } else {
+      tipsEl.innerHTML = '';
+    }
+  }
+
+  function esc(str) {
+    if (str == null) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  // ── 클립보드 복사 ──
+  document.getElementById('copy-btn').addEventListener('click', () => {
+    if (!currentOKR) return;
+    const text = buildPlainText(currentOKR);
+    navigator.clipboard.writeText(text).then(() => showToast());
+  });
+
+  function buildPlainText(okr) {
+    let lines = [];
+    lines.push(`[OKR] ${okr.period || ''}`);
+    lines.push(`전략 요약: ${okr.summary || ''}`);
+    lines.push('');
+
+    (okr.objectives || []).forEach((obj) => {
+      lines.push(`${obj.id}. ${obj.title}`);
+      if (obj.rationale) lines.push(`   → ${obj.rationale}`);
+      (obj.key_results || []).forEach((kr) => {
+        const baseline = (kr.baseline && kr.baseline !== '알 수 없음') ? `${kr.baseline}${kr.unit || ''} → ` : '';
+        lines.push(`   ${kr.id}: ${kr.title}`);
+        lines.push(`         목표: ${baseline}${kr.target}${kr.unit || ''}`);
+        if (kr.measurement_method) lines.push(`         측정: ${kr.measurement_method}`);
+      });
+      lines.push('');
+    });
+
+    if (okr.implementation_tips && okr.implementation_tips.length > 0) {
+      lines.push('[실행 가이드]');
+      okr.implementation_tips.forEach(tip => lines.push(`• ${tip}`));
+    }
+
+    return lines.join('\n');
+  }
+
+  function showToast() {
+    const toast = document.getElementById('toast');
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 2200);
+  }
+
+  // ── 리셋 ──
+  document.getElementById('reset-btn').addEventListener('click', () => {
+    currentOKR = null;
+    setState('idle');
+  });
+
+  document.getElementById('error-retry-btn').addEventListener('click', () => {
+    setState('idle');
+  });
+</script>
+
+</body>
+</html>
